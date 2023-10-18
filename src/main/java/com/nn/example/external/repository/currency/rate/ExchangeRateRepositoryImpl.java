@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service
@@ -25,12 +26,14 @@ class ExchangeRateRepositoryImpl implements ExchangeRateRepository {
     @Override
     public BigDecimal getExchangeRate() {
         try {
-            NbpResponse nbpResponse = restTemplate.getForObject(apiUrl, NbpResponse.class);
-            if (nbpResponse != null && nbpResponse.getRates() != null && nbpResponse.getRates().size() > 0) {
-                return nbpResponse.getRates().get(0).getMid();
-            } else {
-                throw new NbpApiRequestException("Unable to fetch exchange rate for USD");
-            }
+            NbpResponse nbpResponse = Optional.ofNullable(restTemplate.getForObject(apiUrl, NbpResponse.class))
+                    .orElseThrow(() -> new NbpApiRequestException("Unable to fetch exchange rate for USD"));
+
+            return Optional.of(nbpResponse.getRates())
+                    .filter(rates -> !rates.isEmpty())
+                    .map(rates -> rates.get(0).getMid())
+                    .orElseThrow(() -> new NbpApiRequestException("Unable to fetch exchange rate for USD"));
+
         } catch (RestClientException e) {
             throw new NbpApiRequestException("Error while making a request to the NBP API");
         }
